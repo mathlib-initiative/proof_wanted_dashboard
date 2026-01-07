@@ -1,6 +1,7 @@
 name = "proof_wanted_dashboard"
 version = "0.1.0"
 reservoir = false
+defaultTargets = ["ProofWantedExtractor"]
 
 [[require]]
 name = "mathlib"
@@ -10,3 +11,6 @@ scope = "leanprover-community"
 name = "lean_scout"
 git = "https://github.com/mathlib-initiative/lean_scout.git"
 rev = "main"
+
+[[lean_lib]]
+name = "ProofWantedExtractor"
