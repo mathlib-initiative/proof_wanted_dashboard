@@ -1,8 +1,8 @@
 module
 
-import LeanScout.DataExtractors.Utils
-import LeanScout.Frontend
-import LeanScout.Init
+public import LeanScout.DataExtractors.Utils
+public import LeanScout.Frontend
+public import LeanScout.Init
 
 open Lean
 
