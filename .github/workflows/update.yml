@@ -19,3 +19,5 @@ jobs:
 
       - name: Update Lean project
         uses: leanprover-community/lean-update@main
+        with:
+          on_update_succeeds: commit
