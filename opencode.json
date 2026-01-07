@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "lean": {
+      "command": ["lake", "serve"],
+      "extensions": [".lean"]
+    }
+  },
+  "mcp": {
+    "lean4": {
+      "type": "remote",
+      "url": "https://gitmcp.io/leanprover/lean4",
+      "enabled": true
+    },
+    "lean_scout": {
+      "type": "remote",
+      "url": "https://gitmcp.io/mathlib-initiative/lean_scout",
+      "enabled": true
+    },
+    "env_mcp": {
+      "type": "local",
+      "command": ["lake", "env", "lean_mcp"],
+      "enabled": true
+    }
+  }
+}
