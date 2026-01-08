@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   schedule:
     # Run daily at 6:00 UTC to pick up new proof_wanted declarations
-    - cron: '0 6 * * *'
+    - cron: '55 */2 * * *'
 
 permissions:
   contents: read
