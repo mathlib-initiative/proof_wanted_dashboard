@@ -17,6 +17,7 @@ unsafe def proofWanted : LeanScout.DataExtractor where
   schema := .mk [
     { name := "name", nullable := false, type := .string },
     { name := "module", nullable := false, type := .string },
+    { name := "docstring", nullable := true, type := .string },
     { name := "syntax", nullable := false, type := .string },
     { name := "type", nullable := false, type := .string }
   ]
@@ -50,6 +51,14 @@ unsafe def proofWanted : LeanScout.DataExtractor where
             let declId := stx[2]
             let name := declId[0].getId
             let syntaxStr := stx.prettyPrint.pretty
+            -- Extract docstring from declModifiers (stx[0])
+            -- declModifiers structure: docComment? attrs? visibility? ...
+            let declMods := stx[0]
+            let docstring : Option String := 
+              if declMods[0].isNone then none
+              else 
+                let docComment := declMods[0][0]
+                some (TSyntax.getDocString ⟨docComment⟩)
             -- The proof_wanted elaborator creates:
             --   section
             --   axiom helper {α : Sort _} : α  
@@ -89,6 +98,7 @@ unsafe def proofWanted : LeanScout.DataExtractor where
             sink <| json% {
               name : $(name.toString),
               module : $(moduleName),
+              docstring : $(docstring),
               «syntax» : $(syntaxStr),
               type : $(typeStr)
             })
