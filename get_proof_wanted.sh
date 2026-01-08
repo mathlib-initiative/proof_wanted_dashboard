@@ -2,9 +2,7 @@
 
 # Extract all proof_wanted declarations from Mathlib
 
-set -e
-
-lake build ProofWantedExtractor
+set -euo pipefail
 
 # First, find all files that actually contain proof_wanted (much faster than elaborating all 7000+ files)
 echo "Finding files with proof_wanted..."
