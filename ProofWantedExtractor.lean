@@ -43,11 +43,36 @@ unsafe def proofWanted : LeanScout.DataExtractor where
                 (postNode := fun ctx info _ _ => do
                   let .ofTermInfo t := info | return ()
                   if t.stx.getKind == `Lean.Parser.Command.declId then
-                    -- The theorem is an fvar, the helper axiom is a const
+                    -- The theorem appears as fvar during elaboration (inside withoutModifyingEnv)
+                    -- We need to get its type and then abstract over any free variables
                     if t.expr.isFVar then
+                      let theoremFvarId := t.expr.fvarId!
                       let typeStr ← ctx.runMetaM' t.lctx do
                         let exprType ← Meta.inferType t.expr
-                        Meta.ppExpr exprType
+                        -- Get all fvars in the local context that appear in the type
+                        -- These are the section variables we need to abstract over
+                        -- Exclude the theorem's own fvar
+                        let mut fvarsToAbstract : Array Expr := #[]
+                        for decl in t.lctx do
+                          if decl.fvarId != theoremFvarId && exprType.containsFVar decl.fvarId then
+                            fvarsToAbstract := fvarsToAbstract.push (.fvar decl.fvarId)
+                        -- Also include fvars that appear in the types of other fvars (transitive)
+                        let mut changed := true
+                        while changed do
+                          changed := false
+                          for decl in t.lctx do
+                            if decl.fvarId != theoremFvarId && !fvarsToAbstract.any (·.fvarId! == decl.fvarId) then
+                              if fvarsToAbstract.any (fun fv => decl.type.containsFVar fv.fvarId!) then
+                                fvarsToAbstract := fvarsToAbstract.push (.fvar decl.fvarId)
+                                changed := true
+                        -- Sort by order in lctx
+                        let fvarsSorted ← fvarsToAbstract.mapM fun e => do
+                          let some decl := t.lctx.find? e.fvarId! | return (0, e)
+                          return (decl.index, e)
+                        let fvarsSorted := fvarsSorted.qsort (·.1 < ·.1) |>.map (·.2)
+                        -- Abstract the type over these fvars
+                        let abstractedType ← Meta.mkForallFVars fvarsSorted exprType
+                        Meta.ppExpr abstractedType
                       typeRef.set (toString typeStr)
                   return ())
             let typeStr ← typeRef.get
