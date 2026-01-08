@@ -35,45 +35,40 @@ unsafe def proofWanted : LeanScout.DataExtractor where
             let declId := stx[2]
             let name := declId[0].getId
             let syntaxStr := stx.prettyPrint.pretty
-            -- Find the declId TermInfo for the theorem (it's an fvar during elaboration)
+            -- The proof_wanted elaborator creates:
+            --   section
+            --   axiom helper {α : Sort _} : α  
+            --   theorem $name $args* : $res := helper
+            --   end
+            -- We look for a theorem whose value uses `helper`
             let typeRef ← IO.mkRef ""
             for child in children do
               discard <| child.visitM (ctx? := some ctxInfo)
                 (preNode := fun _ _ _ => return true)
                 (postNode := fun ctx info _ _ => do
                   let .ofTermInfo t := info | return ()
-                  if t.stx.getKind == `Lean.Parser.Command.declId then
-                    -- The theorem appears as fvar during elaboration (inside withoutModifyingEnv)
-                    -- We need to get its type and then abstract over any free variables
-                    if t.expr.isFVar then
-                      let theoremFvarId := t.expr.fvarId!
-                      let typeStr ← ctx.runMetaM' t.lctx do
-                        let exprType ← Meta.inferType t.expr
-                        -- Get all fvars in the local context that appear in the type
-                        -- These are the section variables we need to abstract over
-                        -- Exclude the theorem's own fvar
-                        let mut fvarsToAbstract : Array Expr := #[]
-                        for decl in t.lctx do
-                          if decl.fvarId != theoremFvarId && exprType.containsFVar decl.fvarId then
-                            fvarsToAbstract := fvarsToAbstract.push (.fvar decl.fvarId)
-                        -- Also include fvars that appear in the types of other fvars (transitive)
-                        let mut changed := true
-                        while changed do
-                          changed := false
-                          for decl in t.lctx do
-                            if decl.fvarId != theoremFvarId && !fvarsToAbstract.any (·.fvarId! == decl.fvarId) then
-                              if fvarsToAbstract.any (fun fv => decl.type.containsFVar fv.fvarId!) then
-                                fvarsToAbstract := fvarsToAbstract.push (.fvar decl.fvarId)
-                                changed := true
-                        -- Sort by order in lctx
-                        let fvarsSorted ← fvarsToAbstract.mapM fun e => do
-                          let some decl := t.lctx.find? e.fvarId! | return (0, e)
-                          return (decl.index, e)
-                        let fvarsSorted := fvarsSorted.qsort (·.1 < ·.1) |>.map (·.2)
-                        -- Abstract the type over these fvars
-                        let abstractedType ← Meta.mkForallFVars fvarsSorted exprType
-                        Meta.ppExpr abstractedType
-                      typeRef.set (toString typeStr)
+                  -- Look for a const expression that is the theorem (not helper)
+                  if let .const constName _ := t.expr then
+                    -- Skip helper itself
+                    if constName.componentsRev.head? == some `helper then return ()
+                    -- Check if this constant's value uses helper  
+                    let some constInfo := ctx.env.find? constName | return ()
+                    let some val := constInfo.value? | return ()
+                    -- The value should be an application of helper (possibly with universe params)
+                    -- helper is wrapped in lambdas for the section vars, so get the body
+                    let mut body := val
+                    while body.isLambda do
+                      body := body.bindingBody!
+                    let appFn := body.getAppFn
+                    -- helper has a hygienic name like Turing.helper._@...
+                    -- Check if "helper" appears anywhere in the name components
+                    let isHelper := appFn.isConst && 
+                      appFn.constName!.components.any (· == `helper)
+                    unless isHelper do return ()
+                    -- Found our theorem! Get its type
+                    let typeStr ← ctx.runMetaM' t.lctx do
+                      Meta.ppExpr constInfo.type
+                    typeRef.set (toString typeStr)
                   return ())
             let typeStr ← typeRef.get
             sink <| json% {
