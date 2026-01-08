@@ -24,22 +24,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Lean
+      - name: Setup Lean and build
         uses: leanprover/lean-action@v1
-        with:
-          build: false
-
-      - name: Download Mathlib cache
-        run: lake exe cache get
-
-      - name: Build extractor
-        run: lake build ProofWantedExtractor
 
       - name: Extract proof_wanted declarations
         run: ./get_proof_wanted.sh
-        timeout-minutes: 30
         env:
-          PARALLEL: 2
+          PARALLEL: 1
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
