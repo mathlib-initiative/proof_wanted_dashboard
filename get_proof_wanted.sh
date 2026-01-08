@@ -16,12 +16,13 @@ fi
 FILE_COUNT=$(echo $FILES | wc -w)
 echo "Found $FILE_COUNT files with proof_wanted declarations"
 
-# Extract from only those files
+# Extract from only those files (use lower parallelism for CI stability)
+PARALLEL=${PARALLEL:-4}
 lake run scout \
   --plugin ProofWantedExtractor \
   --command proof_wanted_extractor \
   --jsonl \
-  --parallel 8 \
+  --parallel $PARALLEL \
   --read $FILES \
   > proof_wanted.jsonl
 
