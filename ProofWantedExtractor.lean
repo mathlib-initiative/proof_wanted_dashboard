@@ -16,6 +16,7 @@ def proofWantedKind : Name := `proof_wanted
 unsafe def proofWanted : LeanScout.DataExtractor where
   schema := .mk [
     { name := "name", nullable := false, type := .string },
+    { name := "module", nullable := false, type := .string },
     { name := "syntax", nullable := false, type := .string },
     { name := "type", nullable := false, type := .string }
   ]
@@ -23,6 +24,20 @@ unsafe def proofWanted : LeanScout.DataExtractor where
   go _config sink opts
   | .input tgt => do
     discard <| tgt.processCommands opts fun state => do
+      -- Get the module name from the file path
+      -- Convert path like ".lake/packages/mathlib/Mathlib/Foo/Bar.lean" to "Mathlib.Foo.Bar"
+      let pathStr := tgt.path.toString
+      let moduleName := pathStr
+        |>.replace "/" "."
+        |>.replace "\\" "."
+        |> (fun s => if s.endsWith ".lean" then (s.dropEnd 5).toString else s)
+        |> (fun s => 
+          -- Find the module root (e.g., "Mathlib" or similar)
+          let parts := s.splitOn "."
+          -- Look for common roots
+          match parts.findIdx? (· ∈ ["Mathlib", "Batteries", "Std", "Init", "Lean"]) with
+          | some idx => ".".intercalate (parts.drop idx)
+          | none => s)
       -- Iterate through the info trees looking for proof_wanted commands
       for tree in state.commandState.infoState.trees do
         discard <| tree.visitM (ctx? := none)
@@ -65,7 +80,7 @@ unsafe def proofWanted : LeanScout.DataExtractor where
                     let isHelper := appFn.isConst && 
                       appFn.constName!.components.any (· == `helper)
                     unless isHelper do return ()
-                    -- Found our theorem! Get its type
+                    -- Found our theorem! Get its type from the environment
                     let typeStr ← ctx.runMetaM' t.lctx do
                       Meta.ppExpr constInfo.type
                     typeRef.set (toString typeStr)
@@ -73,6 +88,7 @@ unsafe def proofWanted : LeanScout.DataExtractor where
             let typeStr ← typeRef.get
             sink <| json% {
               name : $(name.toString),
+              module : $(moduleName),
               «syntax» : $(syntaxStr),
               type : $(typeStr)
             })
