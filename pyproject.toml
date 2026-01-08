@@ -1,0 +1,11 @@
+[project]
+name = "proof-wanted-dashboard"
+version = "0.1.0"
+description = "Static site generator for Mathlib proof_wanted declarations"
+requires-python = ">=3.10"
+dependencies = [
+    "jinja2>=3.1.0",
+]
+
+[project.scripts]
+generate-site = "generate_site:main"

@@ -18,6 +18,8 @@ unsafe def proofWanted : LeanScout.DataExtractor where
     { name := "name", nullable := false, type := .string },
     { name := "module", nullable := false, type := .string },
     { name := "docstring", nullable := true, type := .string },
+    { name := "startLine", nullable := false, type := .int },
+    { name := "endLine", nullable := false, type := .int },
     { name := "syntax", nullable := false, type := .string },
     { name := "type", nullable := false, type := .string }
   ]
@@ -59,6 +61,13 @@ unsafe def proofWanted : LeanScout.DataExtractor where
               else 
                 let docComment := declMods[0][0]
                 some (TSyntax.getDocString ⟨docComment⟩)
+            -- Extract line numbers from syntax positions
+            let startLine : Nat := match stx.getPos? with
+              | some pos => ctxInfo.fileMap.toPosition pos |>.line
+              | none => 0
+            let endLine : Nat := match stx.getTailPos? with
+              | some pos => ctxInfo.fileMap.toPosition pos |>.line
+              | none => startLine
             -- The proof_wanted elaborator creates:
             --   section
             --   axiom helper {α : Sort _} : α  
@@ -99,6 +108,8 @@ unsafe def proofWanted : LeanScout.DataExtractor where
               name : $(name.toString),
               module : $(moduleName),
               docstring : $(docstring),
+              startLine : $(startLine),
+              endLine : $(endLine),
               «syntax» : $(syntaxStr),
               type : $(typeStr)
             })
