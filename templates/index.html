@@ -9,6 +9,7 @@
       --bg: #0d1117;
       --bg-secondary: #161b22;
       --bg-tertiary: #21262d;
+      --code-bg: #21262d;
       --text: #e6edf3;
       --text-muted: #8b949e;
       --border: #30363d;
@@ -20,6 +21,7 @@
       --bg: #ffffff;
       --bg-secondary: #f6f8fa;
       --bg-tertiary: #eaeef2;
+      --code-bg: #f0f3f6;
       --text: #1f2328;
       --text-muted: #57606a;
       --border: #d0d7de;
@@ -183,7 +185,7 @@
     }
 
     .proof-type {
-      background: var(--bg-tertiary);
+      background: var(--code-bg, var(--bg-tertiary));
       border-radius: 6px;
       padding: 1rem;
       overflow-x: auto;
@@ -226,6 +228,7 @@
     /* Shiki theme overrides */
     .shiki {
       background: transparent !important;
+      color: var(--text) !important;
     }
 
     @media (max-width: 768px) {
