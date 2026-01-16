@@ -306,6 +306,14 @@
     const THEME_STORAGE_KEY = 'proofWantedTheme';
     const themeButtons = document.querySelectorAll('[data-theme-option]');
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const codeContainers = Array.from(document.querySelectorAll('.proof-type'));
+
+    codeContainers.forEach(container => {
+      const codeElement = container.querySelector('code.language-lean4');
+      if (codeElement) {
+        container.dataset.code = codeElement.textContent;
+      }
+    });
 
     function resolveTheme(theme) {
       if (theme === 'system') {
@@ -336,12 +344,16 @@
     }
 
     async function highlightAll(theme) {
-      const codeBlocks = document.querySelectorAll('code.language-lean4');
       const shikiTheme = theme === 'dark' ? 'github-dark' : 'github-light';
 
-      for (const block of codeBlocks) {
+      for (const container of codeContainers) {
+        const codeText = container.dataset.code;
+        if (!codeText) {
+          continue;
+        }
+
         try {
-          const html = await codeToHtml(block.textContent, {
+          const html = await codeToHtml(codeText, {
             lang: 'lean4',
             theme: shikiTheme
           });
@@ -349,7 +361,8 @@
           temp.innerHTML = html;
           const shikiPre = temp.querySelector('pre');
           if (shikiPre) {
-            block.parentElement.replaceWith(shikiPre);
+            container.innerHTML = '';
+            container.appendChild(shikiPre);
           }
         } catch (e) {
           console.warn('Shiki highlighting failed for block:', e);
