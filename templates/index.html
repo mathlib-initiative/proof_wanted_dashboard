@@ -16,6 +16,17 @@
       --accent-hover: #79b8ff;
     }
 
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --bg-secondary: #f6f8fa;
+      --bg-tertiary: #eaeef2;
+      --text: #1f2328;
+      --text-muted: #57606a;
+      --border: #d0d7de;
+      --accent: #0969da;
+      --accent-hover: #0550ae;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -38,6 +49,18 @@
       border-bottom: 1px solid var(--border);
     }
 
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .title-block {
+      min-width: 260px;
+    }
+
     h1 {
       font-size: 2rem;
       font-weight: 600;
@@ -47,6 +70,38 @@
     .subtitle {
       color: var(--text-muted);
       font-size: 1rem;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-secondary);
+    }
+
+    .theme-toggle button {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: color 0.2s ease, background 0.2s ease;
+    }
+
+    .theme-toggle button:hover {
+      color: var(--text);
+      background: var(--bg-tertiary);
+    }
+
+    .theme-toggle button.active {
+      color: var(--text);
+      background: var(--bg-tertiary);
+      font-weight: 600;
     }
 
     .search-container {
@@ -190,8 +245,17 @@
 </head>
 <body>
   <header>
-    <h1>Mathlib Proof Wanted</h1>
-    <p class="subtitle">Theorems in Mathlib awaiting proofs</p>
+    <div class="header-top">
+      <div class="title-block">
+        <h1>Mathlib Proof Wanted</h1>
+        <p class="subtitle">Theorems in Mathlib awaiting proofs</p>
+      </div>
+      <div class="theme-toggle" role="group" aria-label="Theme selection">
+        <button type="button" data-theme-option="light">Light</button>
+        <button type="button" data-theme-option="dark">Dark</button>
+        <button type="button" data-theme-option="system">System</button>
+      </div>
+    </div>
     <div class="search-container">
       <input type="text" id="search" placeholder="Search by name, module, or description...">
       <div class="stats">
@@ -236,14 +300,47 @@
   <script type="module">
     import { codeToHtml } from 'https://esm.sh/shiki@3.0.0';
 
-    async function highlightAll() {
+    const THEME_STORAGE_KEY = 'proofWantedTheme';
+    const themeButtons = document.querySelectorAll('[data-theme-option]');
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function resolveTheme(theme) {
+      if (theme === 'system') {
+        return mediaQuery.matches ? 'dark' : 'light';
+      }
+      return theme;
+    }
+
+    function applyTheme(theme) {
+      const resolvedTheme = resolveTheme(theme);
+      document.documentElement.setAttribute('data-theme', resolvedTheme);
+
+      themeButtons.forEach(button => {
+        const isActive = button.dataset.themeOption === theme;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive);
+      });
+
+      return resolvedTheme;
+    }
+
+    function loadStoredTheme() {
+      return localStorage.getItem(THEME_STORAGE_KEY) || 'system';
+    }
+
+    function storeTheme(theme) {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+
+    async function highlightAll(theme) {
       const codeBlocks = document.querySelectorAll('code.language-lean4');
-      
+      const shikiTheme = theme === 'dark' ? 'github-dark' : 'github-light';
+
       for (const block of codeBlocks) {
         try {
           const html = await codeToHtml(block.textContent, {
             lang: 'lean4',
-            theme: 'github-dark'
+            theme: shikiTheme
           });
           const temp = document.createElement('div');
           temp.innerHTML = html;
@@ -257,7 +354,25 @@
       }
     }
 
-    highlightAll();
+    let currentTheme = loadStoredTheme();
+    let resolvedTheme = applyTheme(currentTheme);
+    highlightAll(resolvedTheme);
+
+    themeButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        currentTheme = button.dataset.themeOption;
+        storeTheme(currentTheme);
+        resolvedTheme = applyTheme(currentTheme);
+        highlightAll(resolvedTheme);
+      });
+    });
+
+    mediaQuery.addEventListener('change', () => {
+      if (currentTheme === 'system') {
+        resolvedTheme = applyTheme(currentTheme);
+        highlightAll(resolvedTheme);
+      }
+    });
 
     // Search functionality
     const searchInput = document.getElementById('search');
@@ -275,12 +390,12 @@
         const name = item.dataset.name;
         const module = item.dataset.module;
         const docstring = item.dataset.docstring;
-        
-        const matches = !query || 
-          name.includes(query) || 
-          module.includes(query) || 
+
+        const matches = !query ||
+          name.includes(query) ||
+          module.includes(query) ||
           docstring.includes(query);
-        
+
         item.classList.toggle('hidden', !matches);
         if (matches) visible++;
       });
