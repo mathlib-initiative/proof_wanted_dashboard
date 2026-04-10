@@ -4,9 +4,10 @@
 
 set -euo pipefail
 
-# First, find all files that actually contain proof_wanted (much faster than elaborating all 7000+ files)
+# First, find all Mathlib source files that actually contain proof_wanted
+# (much faster than elaborating all 7000+ files, and avoids MathlibTest files)
 echo "Finding files with proof_wanted..."
-FILES=$(grep -rl "^proof_wanted" .lake/packages/mathlib --include="*.lean" | tr '\n' ' ')
+FILES=$(grep -rl "^proof_wanted" .lake/packages/mathlib/Mathlib --include="*.lean" | tr '\n' ' ')
 
 if [ -z "$FILES" ]; then
   echo "No files with proof_wanted found"

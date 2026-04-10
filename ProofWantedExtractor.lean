@@ -53,6 +53,7 @@ unsafe def proofWanted : LeanScout.DataExtractor where
             let declId := stx[2]
             let name := declId[0].getId
             let syntaxStr := stx.prettyPrint.pretty
+            let targetName := Lean.removeRoot name
             -- Extract docstring from declModifiers (stx[0])
             -- declModifiers structure: docComment? attrs? visibility? ...
             let declMods := stx[0]
@@ -68,40 +69,26 @@ unsafe def proofWanted : LeanScout.DataExtractor where
             let endLine : Nat := match stx.getTailPos? with
               | some pos => ctxInfo.fileMap.toPosition pos |>.line
               | none => startLine
-            -- The proof_wanted elaborator creates:
-            --   section
-            --   axiom helper {α : Sort _} : α  
-            --   theorem $name $args* : $res := helper
-            --   end
-            -- We look for a theorem whose value uses `helper`
+            -- `proof_wanted` elaborates to a temporary theorem inside `withoutModifyingEnv`.
+            -- That theorem is visible in the environment stored in the info-tree nodes generated
+            -- while elaborating the theorem command. We locate the term-info node for the theorem
+            -- name itself, and then read the elaborated type from that node's environment.
             let typeRef ← IO.mkRef ""
             for child in children do
               discard <| child.visitM (ctx? := some ctxInfo)
                 (preNode := fun _ _ _ => return true)
                 (postNode := fun ctx info _ _ => do
                   let .ofTermInfo t := info | return ()
-                  -- Look for a const expression that is the theorem (not helper)
-                  if let .const constName _ := t.expr then
-                    -- Skip helper itself
-                    if constName.componentsRev.head? == some `helper then return ()
-                    -- Check if this constant's value uses helper  
-                    let some constInfo := ctx.env.find? constName | return ()
-                    let some val := constInfo.value? | return ()
-                    -- The value should be an application of helper (possibly with universe params)
-                    -- helper is wrapped in lambdas for the section vars, so get the body
-                    let mut body := val
-                    while body.isLambda do
-                      body := body.bindingBody!
-                    let appFn := body.getAppFn
-                    -- helper has a hygienic name like Turing.helper._@...
-                    -- Check if "helper" appears anywhere in the name components
-                    let isHelper := appFn.isConst && 
-                      appFn.constName!.components.any (· == `helper)
-                    unless isHelper do return ()
-                    -- Found our theorem! Get its type from the environment
-                    let typeStr ← ctx.runMetaM' t.lctx do
-                      Meta.ppExpr constInfo.type
-                    typeRef.set (toString typeStr)
+                  let .const constName _ := t.expr | return ()
+                  unless t.stx.isIdent do return ()
+                  let identName := Lean.removeRoot t.stx.getId
+                  let constName := Lean.removeRoot constName
+                  unless identName.isSuffixOf targetName do return ()
+                  unless targetName.isSuffixOf constName do return ()
+                  let some constInfo := ctx.env.find? constName | return ()
+                  let typeStr ← ctx.runMetaM' t.lctx do
+                    Meta.ppExpr constInfo.type
+                  typeRef.set (toString typeStr)
                   return ())
             let typeStr ← typeRef.get
             sink <| json% {
