@@ -4,17 +4,21 @@
 
 set -euo pipefail
 
-# First, find all Mathlib source files that actually contain proof_wanted
-# (much faster than elaborating all 7000+ files, and avoids MathlibTest files)
+# Find the files in mathlib's dedicated Wanted source tree that contain proof_wanted.
+# This is much faster than elaborating every mathlib source file.
 echo "Finding files with proof_wanted..."
-FILES=$(grep -rl "^proof_wanted" .lake/packages/mathlib/Mathlib --include="*.lean" | tr '\n' ' ')
+mapfile -t FILES < <(
+  grep -rlE --include="*.lean" '^[[:space:]]*proof_wanted([[:space:]]|$)' \
+    .lake/packages/mathlib/Wanted || true
+)
 
-if [ -z "$FILES" ]; then
+if [ "${#FILES[@]}" -eq 0 ]; then
   echo "No files with proof_wanted found"
+  : > proof_wanted.jsonl
   exit 0
 fi
 
-FILE_COUNT=$(echo $FILES | wc -w)
+FILE_COUNT=${#FILES[@]}
 echo "Found $FILE_COUNT files with proof_wanted declarations"
 
 # Extract from only those files (use lower parallelism for CI stability)
@@ -23,8 +27,8 @@ lake run scout \
   --plugin ProofWantedExtractor \
   --command proof_wanted_extractor \
   --jsonl \
-  --parallel $PARALLEL \
-  --read $FILES \
+  --parallel "$PARALLEL" \
+  --read "${FILES[@]}" \
   > proof_wanted.jsonl
 
 echo "Extracted $(wc -l < proof_wanted.jsonl) proof_wanted declarations to proof_wanted.jsonl"

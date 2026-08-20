@@ -38,7 +38,7 @@ unsafe def proofWanted : LeanScout.DataExtractor where
           -- Find the module root (e.g., "Mathlib" or similar)
           let parts := s.splitOn "."
           -- Look for common roots
-          match parts.findIdx? (· ∈ ["Mathlib", "Batteries", "Std", "Init", "Lean"]) with
+          match parts.findIdx? (· ∈ ["Mathlib", "Wanted", "Batteries", "Std", "Init", "Lean"]) with
           | some idx => ".".intercalate (parts.drop idx)
           | none => s)
       -- Iterate through the info trees looking for proof_wanted commands
