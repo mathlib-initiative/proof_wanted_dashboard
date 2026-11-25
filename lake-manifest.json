@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "2b7e2c0e96a7f2fd6d9f1706a2d22b1c6453f6cc",
+   "rev": "cf03713899dd6b67c94c686672cba450ed9749e0",
    "name": "lean_scout",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
